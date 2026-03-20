@@ -1,0 +1,42 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicegui/nicegui/main/tauri.conf.schema.json",
+  "productName": "PC-Paralegal",
+  "version": "0.1.0",
+  "identifier": "com.aiskillslab.pc-paralegal",
+  "build": {
+    "beforeDevCommand": "bun run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "bun run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "PC-Paralegal",
+        "width": 1280,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "minWidth": 900,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:* ws://localhost:*; frame-src http://localhost:3100"
+    }
+  },
+  "plugins": {
+    "fs": {
+      "scope": {
+        "allow": [
+          "$HOME/paralegal/**",
+          "$HOME/paralegal"
+        ]
+      }
+    },
+    "shell": {
+      "open": true
+    }
+  }
+}

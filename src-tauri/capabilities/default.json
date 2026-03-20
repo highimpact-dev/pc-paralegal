@@ -1,0 +1,19 @@
+{
+  "identifier": "default",
+  "description": "Default permissions for PC-Paralegal",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "fs:default",
+    "fs:allow-read",
+    "fs:allow-write",
+    "fs:allow-exists",
+    "fs:allow-mkdir",
+    "fs:allow-remove",
+    "fs:allow-rename",
+    "fs:allow-copy-file",
+    "fs:allow-read-dir",
+    "shell:default",
+    "shell:allow-open"
+  ]
+}

@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+bun.lockb
+
+# Rust build artifacts
+src-tauri/target/
+
+# Vite
+dist/
+
+# Environment
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude
+.claude/
