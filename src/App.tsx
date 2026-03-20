@@ -21,6 +21,7 @@ import {
   type ThemePreference,
   type ResolvedTheme,
 } from "./lib/theme";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   AuthContext,
   type User,
@@ -50,6 +51,13 @@ export default function App() {
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [needsSetup, setNeedsSetup] = useState(false);
+
+  // Update window title when company name loads
+  useEffect(() => {
+    if (companyName) {
+      getCurrentWindow().setTitle(companyName).catch(() => {});
+    }
+  }, [companyName]);
 
   // Whenever resolved changes, apply to DOM immediately
   useEffect(() => {

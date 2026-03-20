@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import { invoke } from "@tauri-apps/api/core";
 
 export type ThemePreference = "light" | "dark" | "auto";
 export type ResolvedTheme = "light" | "dark";
@@ -35,12 +36,16 @@ export function resolveTheme(pref: ThemePreference): ResolvedTheme {
 }
 
 export function applyTheme(resolved: ResolvedTheme) {
-  // Explicitly add/remove rather than toggle for WKWebView compatibility
+  // CSS dark mode class
   if (resolved === "dark") {
     document.documentElement.classList.add("dark");
   } else {
     document.documentElement.classList.remove("dark");
   }
+  // Native window chrome theme (title bar color on macOS) via Rust command
+  invoke("set_window_theme", { dark: resolved === "dark" }).catch((e: unknown) =>
+    console.warn("[theme] set_window_theme failed:", e)
+  );
 }
 
 export function savePreference(pref: ThemePreference) {

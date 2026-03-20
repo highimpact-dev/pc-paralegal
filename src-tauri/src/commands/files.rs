@@ -105,3 +105,42 @@ pub async fn copy_to_inbox(
     fs::copy(source, &dest).map_err(|e| format!("Failed to copy: {}", e))?;
     Ok(dest.to_string_lossy().to_string())
 }
+
+#[tauri::command]
+pub async fn archive_file(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<String, String> {
+    let source = std::path::Path::new(&path);
+    if !source.exists() {
+        return Err("File not found".to_string());
+    }
+    let filename = source
+        .file_name()
+        .ok_or("Invalid filename")?
+        .to_string_lossy()
+        .to_string();
+    let dest = state.paralegal_dir.join("archive").join(&filename);
+    fs::rename(source, &dest).map_err(|e| format!("Failed to archive: {}", e))?;
+    Ok(dest.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn restore_file(
+    state: State<'_, AppState>,
+    path: String,
+    target_dir: String,
+) -> Result<String, String> {
+    let source = std::path::Path::new(&path);
+    if !source.exists() {
+        return Err("File not found".to_string());
+    }
+    let filename = source
+        .file_name()
+        .ok_or("Invalid filename")?
+        .to_string_lossy()
+        .to_string();
+    let dest = state.paralegal_dir.join(&target_dir).join(&filename);
+    fs::rename(source, &dest).map_err(|e| format!("Failed to restore: {}", e))?;
+    Ok(dest.to_string_lossy().to_string())
+}

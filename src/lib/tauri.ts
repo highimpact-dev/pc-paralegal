@@ -77,6 +77,25 @@ export async function deleteFile(path: string): Promise<void> {
   return invoke("delete_file", { path });
 }
 
+export async function archiveFile(path: string): Promise<string> {
+  return invoke<string>("archive_file", { path });
+}
+
+export async function restoreFile(path: string, targetDir: string): Promise<string> {
+  return invoke<string>("restore_file", { path, targetDir });
+}
+
+export function clearChatHistory(docPath: string) {
+  try {
+    const stored = localStorage.getItem("pc-paralegal-chat-history");
+    if (stored) {
+      const history = JSON.parse(stored);
+      delete history[docPath];
+      localStorage.setItem("pc-paralegal-chat-history", JSON.stringify(history));
+    }
+  } catch {}
+}
+
 export async function copyToInbox(sourcePath: string): Promise<string> {
   return invoke<string>("copy_to_inbox", { sourcePath });
 }

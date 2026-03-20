@@ -62,6 +62,7 @@
     "shell:default",
     "shell:allow-open",
     "core:app:allow-set-app-theme",
-    "core:window:allow-set-theme"
+    "core:window:allow-set-theme",
+    "core:window:allow-set-title"
   ]
 }
