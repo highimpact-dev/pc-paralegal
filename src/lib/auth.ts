@@ -12,6 +12,7 @@ export interface AuthContextValue {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  setup: (name: string, email: string, password: string, companyName: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -21,6 +22,7 @@ export const AuthContext = createContext<AuthContextValue>({
   token: null,
   loading: true,
   login: async () => {},
+  setup: async () => {},
   register: async () => {},
   logout: async () => {},
 });
@@ -82,6 +84,24 @@ export async function apiLogout(token: string): Promise<void> {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   }).catch(() => {});
+}
+
+export async function apiSetup(
+  name: string,
+  email: string,
+  password: string,
+  companyName: string
+): Promise<{ token: string; user: User }> {
+  const res = await fetch(`${API}/auth/setup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, password, companyName }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Setup failed" }));
+    throw new Error(err.error || "Setup failed");
+  }
+  return res.json();
 }
 
 export async function apiSetupStatus(): Promise<{ needsSetup: boolean }> {

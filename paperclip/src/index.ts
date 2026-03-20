@@ -1,7 +1,7 @@
 import { join } from "path";
 import { createDb } from "./db.js";
 import { createApp } from "./app.js";
-import { seedIfEmpty } from "./seed.js";
+// seed.ts is no longer auto-run; setup happens via POST /api/auth/setup
 
 const PORT = parseInt(process.env.PORT || "3101", 10);
 const DATABASE_PATH = process.env.DATABASE_PATH || join(
@@ -184,10 +184,7 @@ try {
   console.log("[paperclip] Core tables created.");
 }
 
-// Seed on first launch
-await seedIfEmpty(db);
-
-// Start server
+// Start server (setup/seeding now happens via POST /api/auth/setup on first launch)
 const app = createApp(db, sqlite);
 app.listen(PORT, () => {
   console.log(`[paperclip] Server running at http://localhost:${PORT}`);

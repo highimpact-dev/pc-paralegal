@@ -58,6 +58,75 @@ export function createAuthRoutes(_db: AppDb, sqlite: Database): Router {
     res.json({ needsSetup: userCount === 0, userCount });
   });
 
+  // POST /api/auth/setup - First launch: create admin + company + project + agents
+  router.post("/api/auth/setup", async (req, res) => {
+    const { name, email, password, companyName } = req.body as {
+      name?: string;
+      email?: string;
+      password?: string;
+      companyName?: string;
+    };
+
+    if (!name || !email || !password || !companyName) {
+      return res.status(400).json({ error: "name, email, password, and companyName are required" });
+    }
+
+    const countRow = sqlite.query<{ count: number }, []>(
+      "SELECT COUNT(*) as count FROM users"
+    ).get();
+    if ((countRow?.count ?? 0) > 0) {
+      return res.status(400).json({ error: "Setup already completed" });
+    }
+
+    // Create admin user
+    const passwordHash = await Bun.password.hash(password);
+    const userId = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    sqlite.query(
+      "INSERT INTO users (id, name, email, password_hash, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    ).run(userId, name, email, passwordHash, "admin", now, now);
+
+    // Create company
+    const companyId = crypto.randomUUID();
+    const prefix = companyName.slice(0, 3).toUpperCase();
+    sqlite.query(
+      "INSERT INTO companies (id, name, issue_prefix, status, issue_counter, require_board_approval_for_new_agents, created_at, updated_at) VALUES (?, ?, ?, 'active', 0, 0, ?, ?)"
+    ).run(companyId, companyName, prefix, now, now);
+
+    // Create default project
+    const projectId = crypto.randomUUID();
+    sqlite.query(
+      "INSERT INTO projects (id, company_id, name, status, created_at, updated_at) VALUES (?, ?, 'Cases', 'active', ?, ?)"
+    ).run(projectId, companyId, now, now);
+
+    // Create default agents
+    const agentDefs = [
+      { name: "Director", role: "orchestrator", title: "Paralegal Director", caps: "task_decomposition,delegation,review" },
+      { name: "Reviewer", role: "analyst", title: "Document Reviewer", caps: "document_analysis,risk_assessment,clause_review" },
+      { name: "Drafter", role: "writer", title: "Document Drafter", caps: "memo_writing,summarization,checklist_creation" },
+    ];
+    for (const def of agentDefs) {
+      sqlite.query(
+        "INSERT INTO agents (id, company_id, name, role, title, capabilities, adapter_type, status, adapter_config, runtime_config, permissions, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'process', 'idle', '{}', '{}', '{}', ?, ?)"
+      ).run(crypto.randomUUID(), companyId, def.name, def.role, def.title, def.caps, now, now);
+    }
+
+    // Auto-login: create session
+    const token = crypto.randomUUID();
+    const sessionId = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    sqlite.query(
+      "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)"
+    ).run(sessionId, userId, token, expiresAt, now);
+
+    return res.status(201).json({
+      token,
+      user: { id: userId, name, email, role: "admin" },
+      company: { id: companyId, name: companyName, prefix },
+    });
+  });
+
   // POST /api/auth/register
   router.post("/api/auth/register", async (req, res) => {
     const { name, email, password, role } = req.body as {

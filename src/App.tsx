@@ -27,6 +27,7 @@ import {
   getStoredToken,
   setStoredToken,
   apiLogin,
+  apiSetup,
   apiRegister,
   apiGetMe,
   apiLogout,
@@ -107,6 +108,14 @@ export default function App() {
     setNeedsSetup(false);
   };
 
+  const setup = async (name: string, email: string, password: string, companyName: string) => {
+    const result = await apiSetup(name, email, password, companyName);
+    setStoredToken(result.token);
+    setToken(result.token);
+    setUser(result.user);
+    setNeedsSetup(false);
+  };
+
   const register = async (name: string, email: string, password: string) => {
     await apiRegister(name, email, password, token);
     await login(email, password);
@@ -137,7 +146,7 @@ export default function App() {
   }, []);
 
   const themeValue = { preference, resolved, setPreference };
-  const authValue = { user, token, loading: authLoading, login, register, logout };
+  const authValue = { user, token, loading: authLoading, login, setup, register, logout };
 
   if (authLoading) {
     return (
