@@ -1,6 +1,7 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { useTheme } from "../lib/theme";
+import { useAuth } from "../lib/auth";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: "grid" },
@@ -83,6 +84,7 @@ const themeOptions: Array<{ value: "light" | "dark" | "auto"; label: string; ico
 
 export default function Sidebar() {
   const { preference, setPreference } = useTheme();
+  const { user, logout } = useAuth();
 
   return (
     <aside className="w-56 bg-gray-50 dark:bg-sidebar text-gray-800 dark:text-white flex flex-col border-r border-gray-200 dark:border-transparent transition-colors">
@@ -132,13 +134,24 @@ export default function Sidebar() {
         {/* User profile */}
         <div className="flex items-center gap-3 px-3 py-2">
           <div className="w-8 h-8 rounded-full bg-accent-light flex items-center justify-center text-xs font-bold text-white">
-            DM
+            {user?.name?.slice(0, 2).toUpperCase() ?? "?"}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">Doug</p>
-            <p className="text-xs text-gray-400 dark:text-white/40">Paralegal</p>
+            <p className="text-sm font-medium truncate">{user?.name}</p>
+            <p className="text-xs text-gray-400 dark:text-white/40">{user?.role}</p>
           </div>
         </div>
+
+        {/* Sign out */}
+        <button
+          onClick={() => logout()}
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-500 dark:text-white/40 hover:text-gray-700 dark:hover:text-white/70 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-white/5"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Sign Out
+        </button>
       </div>
     </aside>
   );

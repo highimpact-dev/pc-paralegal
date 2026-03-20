@@ -10,6 +10,8 @@ import { activityLog } from "./schema/activity_log.js";
 import { heartbeatRuns } from "./schema/heartbeat_runs.js";
 import { agentMemories } from "./schema/agent_memories.js";
 import type { AppDb } from "./db.js";
+import type { Database } from "bun:sqlite";
+import { createAuthRoutes, getSessionUser } from "./auth.js";
 
 function logActivity(db: AppDb, companyId: string, action: string, entityType: string, entityId: string, actorType = "user", actorId: string | null = null, details: unknown = null) {
   return db.insert(activityLog).values({
@@ -25,15 +27,26 @@ function logActivity(db: AppDb, companyId: string, action: string, entityType: s
   });
 }
 
-export function createApp(db: AppDb) {
+export function createApp(db: AppDb, sqlite: Database) {
   const app = express();
 
   app.use(cors());
   app.use(express.json({ limit: "10mb" }));
 
-  // Health check
+  // Health check (no auth required)
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", version: "0.1.0", mode: "local_trusted" });
+    res.json({ status: "ok", version: "0.1.0", mode: "authenticated" });
+  });
+
+  // Auth routes (no session required — they handle their own auth logic)
+  app.use(createAuthRoutes(db, sqlite));
+
+  // Auth middleware — all subsequent /api/* routes require a valid session
+  app.use("/api", (req, res, next) => {
+    const user = getSessionUser(sqlite, req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    res.locals["user"] = user;
+    return next();
   });
 
   // ==================== Companies ====================
