@@ -1,17 +1,36 @@
-import React from "react";
-import { NavLink } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { useTheme } from "../lib/theme";
 import { useAuth } from "../lib/auth";
+import { getInventory } from "../lib/tauri";
+import { listen } from "@tauri-apps/api/event";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: "grid" },
-  { path: "/upload", label: "Upload", icon: "upload" },
+  { path: "/documents", label: "Documents", icon: "file-text" },
   { path: "/deliverables", label: "Deliverables", icon: "file-text" },
   { path: "/chat", label: "Chat", icon: "message" },
   { path: "/matters", label: "Matters", icon: "folder" },
   { path: "/settings", label: "Settings", icon: "settings" },
   { path: "/admin", label: "Admin", icon: "admin" },
 ];
+
+const SEEN_DOCS_KEY = "pc-paralegal-seen-docs";
+const SEEN_DELIVERABLES_KEY = "pc-paralegal-seen-deliverables";
+
+function getSeenSet(key: string): Set<string> {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) return new Set(JSON.parse(stored));
+  } catch {}
+  return new Set();
+}
+
+function markSeen(key: string, items: string[]) {
+  const current = getSeenSet(key);
+  items.forEach((i) => current.add(i));
+  localStorage.setItem(key, JSON.stringify([...current]));
+}
 
 const icons: Record<string, React.ReactNode> = {
   grid: (
@@ -85,6 +104,73 @@ const themeOptions: Array<{ value: "light" | "dark" | "auto"; label: string; ico
 export default function Sidebar() {
   const { preference, setPreference } = useTheme();
   const { user, companyName, logout } = useAuth();
+  const location = useLocation();
+  const [unreadDocs, setUnreadDocs] = useState(0);
+  const [unreadDeliverables, setUnreadDeliverables] = useState(0);
+
+  const updateBadges = async () => {
+    try {
+      // Documents: count inventory entries not in seen set
+      const inventory = await getInventory();
+      const seenDocs = getSeenSet(SEEN_DOCS_KEY);
+      const newDocs = inventory.filter(
+        (e) => e.status === "complete" && !seenDocs.has(e.source_path)
+      );
+      setUnreadDocs(newDocs.length);
+
+      // Deliverables: count files in deliverables dir not in seen set
+      const { invoke } = await import("@tauri-apps/api/core");
+      const deliverables = await invoke<Array<{ name: string; path: string }>>(
+        "list_directory",
+        { subdir: "deliverables" }
+      ).catch(() => [] as Array<{ name: string; path: string }>);
+      const seenDelivs = getSeenSet(SEEN_DELIVERABLES_KEY);
+      const newDelivs = deliverables.filter((d) => !seenDelivs.has(d.name));
+      setUnreadDeliverables(newDelivs.length);
+    } catch {}
+  };
+
+  useEffect(() => {
+    updateBadges();
+    const interval = setInterval(updateBadges, 5000);
+
+    const unlisten = listen("director:complete", () => {
+      setTimeout(updateBadges, 1000);
+    });
+
+    return () => {
+      clearInterval(interval);
+      unlisten.then((fn) => fn());
+    };
+  }, []);
+
+  // Mark items as seen when visiting the page
+  useEffect(() => {
+    if (location.pathname === "/documents") {
+      getInventory().then((inv) => {
+        const paths = inv.filter((e) => e.status === "complete").map((e) => e.source_path);
+        if (paths.length) {
+          markSeen(SEEN_DOCS_KEY, paths);
+          setUnreadDocs(0);
+        }
+      });
+    }
+    if (location.pathname === "/deliverables") {
+      import("@tauri-apps/api/core").then(({ invoke }) => {
+        invoke<Array<{ name: string }>>("list_directory", { subdir: "deliverables" }).then(
+          (files) => {
+            markSeen(SEEN_DELIVERABLES_KEY, files.map((f) => f.name));
+            setUnreadDeliverables(0);
+          }
+        ).catch(() => {});
+      });
+    }
+  }, [location.pathname]);
+
+  const badges: Record<string, number> = {
+    "/documents": unreadDocs,
+    "/deliverables": unreadDeliverables,
+  };
 
   return (
     <aside className="w-56 bg-gray-50 dark:bg-sidebar text-gray-800 dark:text-white flex flex-col border-r border-gray-200 dark:border-transparent transition-colors">
@@ -106,7 +192,12 @@ export default function Sidebar() {
             }
           >
             {icons[item.icon]}
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {badges[item.path] > 0 && (
+              <span className="min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+                {badges[item.path]}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

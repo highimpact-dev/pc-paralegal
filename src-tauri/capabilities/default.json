@@ -61,6 +61,8 @@
     },
     "shell:default",
     "shell:allow-open",
+    "dialog:default",
+    "dialog:allow-open",
     "core:app:allow-set-app-theme",
     "core:window:allow-set-theme",
     "core:window:allow-set-title"

@@ -2,10 +2,12 @@ const SETTINGS_KEY = "pc-paralegal-settings";
 
 export interface AppSettings {
   model: string;
+  watchDir: string | null;
 }
 
 const defaults: AppSettings = {
   model: "qwen3:8b",
+  watchDir: null,
 };
 
 export function getSettings(): AppSettings {

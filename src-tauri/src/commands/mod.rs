@@ -1,3 +1,4 @@
+pub mod director;
 pub mod documents;
 pub mod files;
 pub mod llm;

@@ -2,6 +2,7 @@ mod commands;
 mod state;
 
 use state::AppState;
+use tauri::Manager;
 
 #[tauri::command]
 fn set_window_theme(app: tauri::AppHandle, window: tauri::WebviewWindow, dark: bool) -> Result<(), String> {
@@ -27,6 +28,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             set_window_theme,
@@ -40,6 +42,7 @@ pub fn run() {
             // File system
             commands::files::init_directories,
             commands::files::list_directory,
+            commands::files::list_arbitrary_directory,
             commands::files::read_file_text,
             commands::files::write_file_text,
             commands::files::write_file_binary,
@@ -50,15 +53,60 @@ pub fn run() {
             // Documents
             commands::documents::parse_document,
             commands::documents::check_liteparse,
+            // Director
+            commands::director::get_director_config,
+            commands::director::save_director_config,
+            commands::director::get_inventory,
+            commands::director::get_watcher_status,
+            commands::director::start_watching,
+            commands::director::stop_watching,
+            commands::director::process_document_manual,
         ])
-        .setup(|_app| {
+        .setup(|app| {
             // Init paralegal directories on startup
             let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
             let base = std::path::PathBuf::from(&home).join("paralegal");
-            let dirs = ["inbox", "processing", "deliverables", "templates", "matters", "config", "data", "archive"];
+            let dirs = ["inbox", "processing", "deliverables", "parsed", "templates", "matters", "config", "data", "archive"];
             for dir in &dirs {
                 let _ = std::fs::create_dir_all(base.join(dir));
             }
+
+            // Auto-start watcher if a watch dir is configured
+            let config_path = base.join("config").join("director.json");
+            if let Ok(content) = std::fs::read_to_string(&config_path) {
+                if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(inbox_path) = config["inbox_path"].as_str() {
+                        if !inbox_path.is_empty() && std::path::Path::new(inbox_path).exists() {
+                            let app_handle = app.handle().clone();
+                            let base_clone = base.clone();
+                            let inbox = inbox_path.to_string();
+                            let stop_flag = std::sync::Arc::new(
+                                std::sync::atomic::AtomicBool::new(false),
+                            );
+
+                            // Store the handle before spawning
+                            {
+                                let managed: &state::AppState = app.state::<state::AppState>().inner();
+                                if let Ok(mut w) = managed.watcher.lock() {
+                                    *w = Some(state::WatcherHandle {
+                                        stop_flag: stop_flag.clone(),
+                                        thread: None, // Thread set after spawn
+                                    });
+                                }
+                            }
+
+                            let stop_clone = stop_flag;
+                            std::thread::spawn(move || {
+                                std::thread::sleep(std::time::Duration::from_secs(2));
+                                commands::director::run_watcher(
+                                    app_handle, base_clone, inbox, stop_clone,
+                                );
+                            });
+                        }
+                    }
+                }
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())

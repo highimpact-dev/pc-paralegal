@@ -1,9 +1,20 @@
 import { useState, useEffect } from "react";
-import { checkOllama, startPaperclip, stopPaperclip } from "../lib/tauri";
+import {
+  checkOllama,
+  startPaperclip,
+  stopPaperclip,
+  getDirectorConfig,
+  saveDirectorConfig,
+  startWatching,
+  stopWatching,
+  getWatcherStatus,
+} from "../lib/tauri";
 import { useTheme } from "../lib/theme";
 import { useAuth } from "../lib/auth";
 import { getSettings, saveSettings, getModel } from "../lib/settings";
-import type { ServiceStatuses } from "../types";
+import { open } from "@tauri-apps/plugin-dialog";
+import { listen } from "@tauri-apps/api/event";
+import type { ServiceStatuses, DirectorConfig, DirectorEvent } from "../types";
 
 const API = "http://localhost:3101/api";
 
@@ -28,10 +39,39 @@ export default function Settings({ services }: SettingsProps) {
   const [starting, setStarting] = useState(false);
   const [stopping, setStopping] = useState(false);
 
+  // Director state
+  const [directorConfig, setDirectorConfig] = useState<DirectorConfig | null>(null);
+  const [watcherActive, setWatcherActive] = useState(false);
+  const [directorStatus, setDirectorStatus] = useState<string | null>(null);
+  const [watcherStarting, setWatcherStarting] = useState(false);
+
   useEffect(() => {
     checkOllama().then((status) => {
       if (status.running) setModels(status.models);
     });
+    getDirectorConfig().then(setDirectorConfig);
+    getWatcherStatus().then(setWatcherActive);
+
+    // Listen for director events
+    const unlisten = Promise.all([
+      listen<DirectorEvent>("director:status", (e) => {
+        setDirectorStatus(e.payload.message);
+        if (e.payload.event_type === "watching") setWatcherActive(true);
+      }),
+      listen<DirectorEvent>("director:processing", (e) => {
+        setDirectorStatus(`Processing: ${e.payload.filename}`);
+      }),
+      listen<DirectorEvent>("director:complete", (e) => {
+        setDirectorStatus(`Completed: ${e.payload.filename} (${e.payload.document_type})`);
+      }),
+      listen<DirectorEvent>("director:error", (e) => {
+        setDirectorStatus(`Error: ${e.payload.message}`);
+      }),
+    ]);
+
+    return () => {
+      unlisten.then((fns) => fns.forEach((fn) => fn()));
+    };
   }, []);
 
   const handleModelChange = (model: string) => {
@@ -57,11 +97,145 @@ export default function Settings({ services }: SettingsProps) {
     setStopping(false);
   };
 
+  const handleSelectInbox = async () => {
+    const selected = await open({ directory: true, title: "Select Inbox Folder" });
+    if (selected && typeof selected === "string") {
+      const newConfig: DirectorConfig = {
+        inbox_path: selected,
+        auto_process: directorConfig?.auto_process ?? true,
+        model: directorConfig?.model ?? getModel(),
+      };
+      await saveDirectorConfig(newConfig);
+      setDirectorConfig(newConfig);
+      saveSettings({ watchDir: selected });
+    }
+  };
+
+  const handleToggleWatcher = async () => {
+    if (watcherActive) {
+      try {
+        await stopWatching();
+        setWatcherActive(false);
+        setDirectorStatus(null);
+      } catch (e) {
+        setDirectorStatus(`Failed to stop: ${e}`);
+      }
+    } else {
+      if (!directorConfig?.inbox_path) {
+        setDirectorStatus("Select an inbox folder first");
+        return;
+      }
+      setWatcherStarting(true);
+      try {
+        await startWatching();
+        setWatcherActive(true);
+      } catch (e) {
+        setDirectorStatus(`Failed to start: ${e}`);
+      }
+      setWatcherStarting(false);
+    }
+  };
+
   return (
     <div className="max-w-2xl">
       <h2 className="text-2xl font-bold mb-6">Settings</h2>
 
       <div className="space-y-6">
+        {/* Director / Inbox Watcher */}
+        <section className="border dark:border-dark-border rounded-lg bg-white dark:bg-dark-surface overflow-hidden">
+          <div className="px-5 py-3 border-b dark:border-dark-border bg-gray-50 dark:bg-dark-card">
+            <h3 className="font-semibold text-sm">Director Agent</h3>
+          </div>
+          <div className="p-5 space-y-4">
+            {/* Inbox folder */}
+            <div>
+              <p className="text-sm font-medium">Watch Folder</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-2">
+                New documents in this folder are automatically reviewed
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs bg-gray-100 dark:bg-dark-card px-3 py-2 rounded-lg font-mono truncate">
+                  {directorConfig?.inbox_path || "No folder selected"}
+                </code>
+                <button
+                  onClick={handleSelectInbox}
+                  className="px-3 py-2 text-xs font-medium rounded-lg bg-accent text-white hover:bg-accent-light transition-colors whitespace-nowrap"
+                >
+                  Browse
+                </button>
+              </div>
+            </div>
+
+            {/* Watcher toggle */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    watcherActive ? "bg-green-500 animate-pulse" : "bg-gray-300 dark:bg-gray-600"
+                  }`}
+                />
+                <div>
+                  <p className="text-sm font-medium">
+                    {watcherActive ? "Watching" : "Inactive"}
+                  </p>
+                  {directorStatus && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {directorStatus}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={handleToggleWatcher}
+                disabled={watcherStarting}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 ${
+                  watcherActive
+                    ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
+                    : "bg-accent text-white hover:bg-accent-light"
+                }`}
+              >
+                {watcherStarting
+                  ? "Starting..."
+                  : watcherActive
+                  ? "Stop"
+                  : "Start Watching"}
+              </button>
+            </div>
+
+            {/* Auto-process toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Auto-process</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  Automatically review and summarize new documents
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  if (!directorConfig) return;
+                  const updated = {
+                    ...directorConfig,
+                    auto_process: !directorConfig.auto_process,
+                  };
+                  await saveDirectorConfig(updated);
+                  setDirectorConfig(updated);
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  directorConfig?.auto_process
+                    ? "bg-accent"
+                    : "bg-gray-300 dark:bg-gray-600"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                    directorConfig?.auto_process ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+        </section>
+
         {/* Services */}
         <section className="border dark:border-dark-border rounded-lg bg-white dark:bg-dark-surface overflow-hidden">
           <div className="px-5 py-3 border-b dark:border-dark-border bg-gray-50 dark:bg-dark-card">
@@ -215,7 +389,7 @@ export default function Settings({ services }: SettingsProps) {
           </div>
           <div className="p-5 space-y-3">
             <PathRow label="Working Directory" path="~/paralegal" />
-            <PathRow label="Inbox" path="~/paralegal/inbox" />
+            <PathRow label="Inbox" path={directorConfig?.inbox_path || "~/paralegal/inbox"} />
             <PathRow label="Deliverables" path="~/paralegal/deliverables" />
             <PathRow label="Database" path="~/paralegal/data/paperclip.db" />
           </div>
@@ -404,7 +578,7 @@ function PathRow({ label, path }: { label: string; path: string }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
-      <code className="text-xs bg-gray-100 dark:bg-dark-card px-2 py-1 rounded font-mono">
+      <code className="text-xs bg-gray-100 dark:bg-dark-card px-2 py-1 rounded font-mono max-w-[300px] truncate">
         {path}
       </code>
     </div>

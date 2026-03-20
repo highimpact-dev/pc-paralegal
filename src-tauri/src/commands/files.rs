@@ -91,6 +91,33 @@ pub async fn delete_file(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn list_arbitrary_directory(path: String) -> Result<Vec<FileEntry>, String> {
+    let p = std::path::Path::new(&path);
+    if !p.exists() {
+        return Ok(vec![]);
+    }
+    let mut entries = vec![];
+    for entry in fs::read_dir(p).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let metadata = entry.metadata().map_err(|e| e.to_string())?;
+        let modified = metadata
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs());
+        entries.push(FileEntry {
+            name: entry.file_name().to_string_lossy().to_string(),
+            path: entry.path().to_string_lossy().to_string(),
+            is_dir: metadata.is_dir(),
+            size: metadata.len(),
+            modified,
+        });
+    }
+    entries.sort_by(|a, b| b.modified.cmp(&a.modified));
+    Ok(entries)
+}
+
+#[tauri::command]
 pub async fn copy_to_inbox(
     state: State<'_, AppState>,
     source_path: String,

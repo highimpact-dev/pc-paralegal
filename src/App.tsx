@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import Sidebar from "./components/Sidebar";
 import StatusBar from "./components/StatusBar";
 import Dashboard from "./pages/Dashboard";
-import Upload from "./pages/Upload";
+import Documents from "./pages/Documents";
 import Deliverables from "./pages/Deliverables";
 import Chat from "./pages/Chat";
 import Matters from "./pages/Matters";
@@ -211,7 +211,7 @@ export default function App() {
             <main className="flex-1 overflow-auto p-6">
               <Routes>
                 <Route path="/" element={<Dashboard />} />
-                <Route path="/upload" element={<Upload />} />
+                <Route path="/documents" element={<Documents />} />
                 <Route path="/deliverables" element={<Deliverables />} />
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/matters" element={<Matters />} />

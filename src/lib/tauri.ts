@@ -112,3 +112,34 @@ export async function chatCompletion(
 ): Promise<ChatResponse> {
   return invoke<ChatResponse>("chat_completion", { model, messages });
 }
+
+// Director
+import type { DirectorConfig, InventoryEntry } from "../types";
+
+export async function getDirectorConfig(): Promise<DirectorConfig> {
+  return invoke<DirectorConfig>("get_director_config");
+}
+
+export async function saveDirectorConfig(config: DirectorConfig): Promise<void> {
+  return invoke("save_director_config", { config });
+}
+
+export async function getInventory(): Promise<InventoryEntry[]> {
+  return invoke<InventoryEntry[]>("get_inventory");
+}
+
+export async function getWatcherStatus(): Promise<boolean> {
+  return invoke<boolean>("get_watcher_status");
+}
+
+export async function startWatching(): Promise<void> {
+  return invoke("start_watching");
+}
+
+export async function stopWatching(): Promise<void> {
+  return invoke("stop_watching");
+}
+
+export async function processDocumentManual(path: string): Promise<void> {
+  return invoke("process_document_manual", { path });
+}

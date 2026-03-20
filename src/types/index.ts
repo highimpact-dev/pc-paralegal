@@ -56,3 +56,27 @@ export interface Deliverable {
   type: "review" | "memo" | "summary" | "checklist";
   created: number;
 }
+
+export interface DirectorConfig {
+  inbox_path: string | null;
+  auto_process: boolean;
+  model: string;
+}
+
+export interface InventoryEntry {
+  filename: string;
+  source_path: string;
+  processed_at: string;
+  document_type: string;
+  deliverables: string[];
+  status: string;
+}
+
+export interface DirectorEvent {
+  event_type: string;
+  filename: string;
+  message: string;
+  document_type?: string;
+  deliverables?: string[];
+  error?: string;
+}
