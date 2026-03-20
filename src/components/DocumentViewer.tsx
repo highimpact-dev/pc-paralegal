@@ -14,15 +14,15 @@ export default function DocumentViewer({ document }: DocumentViewerProps) {
   }
 
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <div className="bg-gray-50 px-4 py-2 border-b flex items-center justify-between">
+    <div className="border dark:border-dark-border rounded-lg overflow-hidden bg-white dark:bg-dark-surface">
+      <div className="bg-gray-50 dark:bg-dark-card px-4 py-2 border-b dark:border-dark-border flex items-center justify-between">
         <span className="font-medium text-sm">{document.filename}</span>
         {document.pages && (
-          <span className="text-xs text-gray-500">{document.pages} pages</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{document.pages} pages</span>
         )}
       </div>
       <div className="p-4 max-h-96 overflow-auto">
-        <pre className="text-sm whitespace-pre-wrap font-sans text-gray-700 leading-relaxed">
+        <pre className="text-sm whitespace-pre-wrap font-sans text-gray-700 dark:text-gray-300 leading-relaxed">
           {document.text || "No text content extracted"}
         </pre>
       </div>

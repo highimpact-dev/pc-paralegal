@@ -25,7 +25,7 @@ export default function Matters() {
 
   return (
     <div className="max-w-5xl">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Matters</h2>
+      <h2 className="text-2xl font-bold mb-6">Matters</h2>
 
       {matters.length === 0 ? (
         <div className="text-center py-12">
@@ -41,10 +41,10 @@ export default function Matters() {
               <button
                 key={m.path}
                 onClick={() => handleSelect(m)}
-                className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                className={`w-full text-left p-3 rounded-lg border dark:border-dark-border transition-colors ${
                   selected?.path === m.path
-                    ? "border-accent bg-accent/5"
-                    : "hover:border-gray-300"
+                    ? "border-accent bg-accent/5 dark:bg-accent/10"
+                    : "hover:border-gray-300 dark:hover:border-dark-border bg-white dark:bg-dark-surface"
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -59,7 +59,7 @@ export default function Matters() {
 
           {selected && (
             <div>
-              <h3 className="font-semibold text-sm text-gray-700 mb-3">
+              <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-3">
                 {selected.name}
               </h3>
               {matterFiles.length === 0 ? (
@@ -69,7 +69,7 @@ export default function Matters() {
                   {matterFiles.map((f) => (
                     <div
                       key={f.path}
-                      className="text-sm p-2 bg-gray-50 rounded flex items-center justify-between"
+                      className="text-sm p-2 bg-gray-50 dark:bg-dark-card rounded flex items-center justify-between"
                     >
                       <span className="truncate">{f.name}</span>
                       <span className="text-xs text-gray-400">

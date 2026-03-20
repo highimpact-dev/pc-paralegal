@@ -1,12 +1,11 @@
 import { chatCompletion } from "./tauri";
+import { getModel } from "./settings";
 import type { ChatMessage } from "../types";
-
-const DEFAULT_MODEL = "qwen3:8b";
 
 export async function reviewDocument(
   documentText: string,
   instructions: string,
-  model: string = DEFAULT_MODEL
+  model: string = getModel()
 ): Promise<string> {
   const messages: ChatMessage[] = [
     {
@@ -25,7 +24,7 @@ export async function reviewDocument(
 export async function draftMemo(
   documentText: string,
   instructions: string,
-  model: string = DEFAULT_MODEL
+  model: string = getModel()
 ): Promise<string> {
   const messages: ChatMessage[] = [
     {
@@ -45,7 +44,7 @@ export async function chatWithDocument(
   documentText: string,
   chatHistory: ChatMessage[],
   userMessage: string,
-  model: string = DEFAULT_MODEL
+  model: string = getModel()
 ): Promise<string> {
   const messages: ChatMessage[] = [
     {

@@ -47,7 +47,7 @@ export default function ChatInterface({
                 className={`max-w-[80%] rounded-lg px-4 py-2.5 text-sm ${
                   msg.role === "user"
                     ? "bg-accent text-white"
-                    : "bg-gray-100 text-gray-800"
+                    : "bg-gray-100 dark:bg-dark-card text-gray-800 dark:text-gray-200"
                 }`}
               >
                 <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
@@ -56,21 +56,21 @@ export default function ChatInterface({
           ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 rounded-lg px-4 py-2.5 text-sm text-gray-500">
+            <div className="bg-gray-100 dark:bg-dark-card rounded-lg px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400">
               <span className="animate-pulse">Thinking...</span>
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
-      <form onSubmit={handleSubmit} className="border-t p-3 flex gap-2">
+      <form onSubmit={handleSubmit} className="border-t dark:border-dark-border p-3 flex gap-2">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={placeholder}
           disabled={loading}
-          className="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50"
+          className="flex-1 px-3 py-2 border dark:border-dark-border rounded-lg text-sm bg-white dark:bg-dark-card dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50 dark:placeholder-gray-500"
         />
         <button
           type="submit"

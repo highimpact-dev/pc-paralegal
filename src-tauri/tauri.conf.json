@@ -27,14 +27,6 @@
     }
   },
   "plugins": {
-    "fs": {
-      "scope": {
-        "allow": [
-          "$HOME/paralegal/**",
-          "$HOME/paralegal"
-        ]
-      }
-    },
     "shell": {
       "open": true
     }

@@ -55,8 +55,8 @@ export default function Chat() {
   return (
     <div className="h-full flex gap-4">
       {/* Document selector */}
-      <div className="w-64 border-r pr-4 overflow-auto flex-shrink-0">
-        <h3 className="font-semibold text-sm text-gray-700 mb-3">Documents</h3>
+      <div className="w-64 border-r dark:border-dark-border pr-4 overflow-auto flex-shrink-0">
+        <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-3">Documents</h3>
         {documents.length === 0 ? (
           <p className="text-xs text-gray-400">No documents available</p>
         ) : (
@@ -68,7 +68,7 @@ export default function Chat() {
                 className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
                   selectedDoc?.path === doc.path
                     ? "bg-accent text-white"
-                    : "hover:bg-gray-100 text-gray-700"
+                    : "hover:bg-gray-100 dark:hover:bg-dark-card text-gray-700 dark:text-gray-300"
                 }`}
               >
                 <span className="block truncate">{doc.name}</span>
@@ -82,11 +82,11 @@ export default function Chat() {
       <div className="flex-1 flex flex-col">
         {selectedDoc ? (
           <>
-            <div className="pb-3 border-b mb-2">
-              <h2 className="text-lg font-bold text-gray-900">
+            <div className="pb-3 border-b dark:border-dark-border mb-2">
+              <h2 className="text-lg font-bold">
                 Chat: {selectedDoc.name}
               </h2>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {docText.length.toLocaleString()} characters loaded
               </p>
             </div>

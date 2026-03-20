@@ -47,8 +47,8 @@ export default function FileDropZone({ onFileDrop, accept }: FileDropZoneProps) 
       onClick={handleClick}
       className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
         dragOver
-          ? "border-blue-500 bg-blue-50"
-          : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+          : "border-gray-300 dark:border-dark-border hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-dark-card"
       }`}
     >
       <svg
@@ -64,7 +64,7 @@ export default function FileDropZone({ onFileDrop, accept }: FileDropZoneProps) 
           d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
         />
       </svg>
-      <p className="text-gray-600 font-medium">
+      <p className="text-gray-600 dark:text-gray-300 font-medium">
         Drop files here or click to browse
       </p>
       <p className="text-sm text-gray-400 mt-1">

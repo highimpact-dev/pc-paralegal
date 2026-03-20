@@ -12,7 +12,7 @@ function Dot({ active }: { active: boolean }) {
 
 export default function StatusBar({ services }: { services: ServiceStatuses }) {
   return (
-    <footer className="h-8 bg-gray-100 border-t border-gray-200 flex items-center px-4 gap-6 text-xs text-gray-600">
+    <footer className="h-8 bg-gray-100 dark:bg-dark-surface border-t border-gray-200 dark:border-dark-border flex items-center px-4 gap-6 text-xs text-gray-600 dark:text-gray-400">
       <div className="flex items-center gap-1.5">
         <Dot active={services.paperclip.running} />
         <span>Paperclip</span>

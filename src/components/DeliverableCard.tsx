@@ -18,13 +18,13 @@ export default function DeliverableCard({ file, onView }: DeliverableCardProps) 
   return (
     <div
       onClick={() => onView(file)}
-      className="border rounded-lg p-4 hover:border-accent/50 hover:shadow-sm cursor-pointer transition-all"
+      className="border dark:border-dark-border rounded-lg p-4 hover:border-accent/50 hover:shadow-sm cursor-pointer transition-all bg-white dark:bg-dark-surface"
     >
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <h3 className="font-medium text-sm truncate">{file.name}</h3>
-          <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-            <span className="px-1.5 py-0.5 bg-gray-100 rounded">{typeLabel}</span>
+          <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <span className="px-1.5 py-0.5 bg-gray-100 dark:bg-dark-card rounded">{typeLabel}</span>
             <span>{sizeLabel}</span>
             {file.modified && (
               <span>{new Date(file.modified * 1000).toLocaleDateString()}</span>

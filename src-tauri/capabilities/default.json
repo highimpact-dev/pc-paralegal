@@ -4,16 +4,64 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "fs:default",
-    "fs:allow-read",
-    "fs:allow-write",
-    "fs:allow-exists",
-    "fs:allow-mkdir",
-    "fs:allow-remove",
-    "fs:allow-rename",
-    "fs:allow-copy-file",
-    "fs:allow-read-dir",
+    {
+      "identifier": "fs:default",
+      "allow": [
+        { "path": "$HOME/paralegal/**" },
+        { "path": "$HOME/paralegal" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-read",
+      "allow": [
+        { "path": "$HOME/paralegal/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write",
+      "allow": [
+        { "path": "$HOME/paralegal/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [
+        { "path": "$HOME/paralegal/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-mkdir",
+      "allow": [
+        { "path": "$HOME/paralegal/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-remove",
+      "allow": [
+        { "path": "$HOME/paralegal/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-rename",
+      "allow": [
+        { "path": "$HOME/paralegal/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-copy-file",
+      "allow": [
+        { "path": "$HOME/paralegal/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-read-dir",
+      "allow": [
+        { "path": "$HOME/paralegal/**" }
+      ]
+    },
     "shell:default",
-    "shell:allow-open"
+    "shell:allow-open",
+    "core:app:allow-set-app-theme",
+    "core:window:allow-set-theme"
   ]
 }
