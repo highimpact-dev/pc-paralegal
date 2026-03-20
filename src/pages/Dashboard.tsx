@@ -1,14 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { listDirectory } from "../lib/tauri";
-import { getModel } from "../lib/settings";
-import type { FileEntry, ServiceStatuses } from "../types";
+import type { FileEntry } from "../types";
 
-interface DashboardProps {
-  services: ServiceStatuses;
-}
-
-export default function Dashboard({ services }: DashboardProps) {
+export default function Dashboard() {
   const [inbox, setInbox] = useState<FileEntry[]>([]);
   const [deliverables, setDeliverables] = useState<FileEntry[]>([]);
   const navigate = useNavigate();
@@ -22,31 +17,6 @@ export default function Dashboard({ services }: DashboardProps) {
     <div className="max-w-5xl">
       <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
 
-      {/* Service status cards */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <ServiceCard
-          name="Paperclip"
-          active={services.paperclip.running}
-          detail={services.paperclip.running ? "Connected" : services.paperclip.error || "Not running"}
-        />
-        <ServiceCard
-          name="Ollama"
-          active={services.ollama.running}
-          detail={
-            services.ollama.running
-              ? `${services.ollama.models.length} model${services.ollama.models.length !== 1 ? "s" : ""} available`
-              : services.ollama.error || "Not running"
-          }
-          subdetail={services.ollama.running ? `Active: ${getModel()}` : undefined}
-        />
-        <ServiceCard
-          name="LiteParse"
-          active={services.liteparse}
-          detail={services.liteparse ? "Installed" : "Not found"}
-        />
-      </div>
-
-      {/* Recent activity */}
       <div className="grid grid-cols-2 gap-6">
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -110,33 +80,6 @@ export default function Dashboard({ services }: DashboardProps) {
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function ServiceCard({
-  name,
-  active,
-  detail,
-  subdetail,
-}: {
-  name: string;
-  active: boolean;
-  detail: string;
-  subdetail?: string;
-}) {
-  return (
-    <div className="border dark:border-dark-border rounded-lg p-4 bg-white dark:bg-dark-surface">
-      <div className="flex items-center gap-2 mb-1">
-        <span
-          className={`w-2 h-2 rounded-full ${active ? "bg-green-500" : "bg-red-500"}`}
-        />
-        <span className="font-medium text-sm">{name}</span>
-      </div>
-      <p className="text-xs text-gray-500 dark:text-gray-400">{detail}</p>
-      {subdetail && (
-        <p className="text-xs text-accent dark:text-blue-400 mt-0.5 font-mono">{subdetail}</p>
-      )}
     </div>
   );
 }

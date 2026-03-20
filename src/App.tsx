@@ -81,12 +81,12 @@ export default function App() {
         <div className="flex flex-col flex-1 overflow-hidden">
           <main className="flex-1 overflow-auto p-6">
             <Routes>
-              <Route path="/" element={<Dashboard services={services} />} />
+              <Route path="/" element={<Dashboard />} />
               <Route path="/upload" element={<Upload />} />
               <Route path="/deliverables" element={<Deliverables />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/matters" element={<Matters />} />
-              <Route path="/settings" element={<Settings />} />
+              <Route path="/settings" element={<Settings services={services} />} />
               <Route path="/admin" element={<Admin />} />
             </Routes>
           </main>

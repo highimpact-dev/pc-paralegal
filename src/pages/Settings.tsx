@@ -1,13 +1,20 @@
 import { useState, useEffect } from "react";
-import { checkOllama } from "../lib/tauri";
+import { checkOllama, startPaperclip, stopPaperclip } from "../lib/tauri";
 import { useTheme } from "../lib/theme";
-import { getSettings, saveSettings } from "../lib/settings";
+import { getSettings, saveSettings, getModel } from "../lib/settings";
+import type { ServiceStatuses } from "../types";
 
-export default function Settings() {
+interface SettingsProps {
+  services: ServiceStatuses;
+}
+
+export default function Settings({ services }: SettingsProps) {
   const { preference, setPreference } = useTheme();
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState(getSettings().model);
   const [saved, setSaved] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [stopping, setStopping] = useState(false);
 
   useEffect(() => {
     checkOllama().then((status) => {
@@ -22,11 +29,94 @@ export default function Settings() {
     setTimeout(() => setSaved(false), 2000);
   };
 
+  const handleStartPaperclip = async () => {
+    setStarting(true);
+    try {
+      await startPaperclip();
+    } catch {}
+    setStarting(false);
+  };
+
+  const handleStopPaperclip = async () => {
+    setStopping(true);
+    try {
+      await stopPaperclip();
+    } catch {}
+    setStopping(false);
+  };
+
   return (
     <div className="max-w-2xl">
       <h2 className="text-2xl font-bold mb-6">Settings</h2>
 
       <div className="space-y-6">
+        {/* Services */}
+        <section className="border dark:border-dark-border rounded-lg bg-white dark:bg-dark-surface overflow-hidden">
+          <div className="px-5 py-3 border-b dark:border-dark-border bg-gray-50 dark:bg-dark-card">
+            <h3 className="font-semibold text-sm">Services</h3>
+          </div>
+          <div className="p-5 space-y-4">
+            {/* Paperclip */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className={`w-2.5 h-2.5 rounded-full ${services.paperclip.running ? "bg-green-500" : "bg-red-500"}`} />
+                <div>
+                  <p className="text-sm font-medium">Paperclip</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {services.paperclip.running ? "Connected" : services.paperclip.error || "Not running"}
+                  </p>
+                </div>
+              </div>
+              {services.paperclip.running ? (
+                <button
+                  onClick={handleStopPaperclip}
+                  disabled={stopping}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50 transition-colors"
+                >
+                  {stopping ? "Stopping..." : "Stop"}
+                </button>
+              ) : (
+                <button
+                  onClick={handleStartPaperclip}
+                  disabled={starting}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-accent text-white hover:bg-accent-light disabled:opacity-50 transition-colors"
+                >
+                  {starting ? "Starting..." : "Start Paperclip"}
+                </button>
+              )}
+            </div>
+
+            {/* Ollama */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className={`w-2.5 h-2.5 rounded-full ${services.ollama.running ? "bg-green-500" : "bg-red-500"}`} />
+                <div>
+                  <p className="text-sm font-medium">Ollama</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {services.ollama.running
+                      ? `${services.ollama.models.length} model${services.ollama.models.length !== 1 ? "s" : ""} available`
+                      : services.ollama.error || "Not running"}
+                  </p>
+                  {services.ollama.running && (
+                    <p className="text-xs text-accent dark:text-blue-400 font-mono">Active: {getModel()}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* LiteParse */}
+            <div className="flex items-center gap-3">
+              <span className={`w-2.5 h-2.5 rounded-full ${services.liteparse ? "bg-green-500" : "bg-red-500"}`} />
+              <div>
+                <p className="text-sm font-medium">LiteParse</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {services.liteparse ? "Installed" : "Not found"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Appearance */}
         <section className="border dark:border-dark-border rounded-lg bg-white dark:bg-dark-surface overflow-hidden">
           <div className="px-5 py-3 border-b dark:border-dark-border bg-gray-50 dark:bg-dark-card">
@@ -112,18 +202,7 @@ export default function Settings() {
             <PathRow label="Working Directory" path="~/paralegal" />
             <PathRow label="Inbox" path="~/paralegal/inbox" />
             <PathRow label="Deliverables" path="~/paralegal/deliverables" />
-            <PathRow label="Templates" path="~/paralegal/templates" />
-          </div>
-        </section>
-
-        {/* Services */}
-        <section className="border dark:border-dark-border rounded-lg bg-white dark:bg-dark-surface overflow-hidden">
-          <div className="px-5 py-3 border-b dark:border-dark-border bg-gray-50 dark:bg-dark-card">
-            <h3 className="font-semibold text-sm">Services</h3>
-          </div>
-          <div className="p-5 space-y-3">
-            <PathRow label="Paperclip Server" path="http://localhost:3101" />
-            <PathRow label="Ollama API" path="http://localhost:11434" />
+            <PathRow label="Database" path="~/paralegal/data/paperclip.db" />
           </div>
         </section>
       </div>

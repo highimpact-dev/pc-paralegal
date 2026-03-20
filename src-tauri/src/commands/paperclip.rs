@@ -23,10 +23,10 @@ pub async fn check_paperclip(state: State<'_, AppState>) -> Result<ServiceStatus
             url: state.paperclip_url.clone(),
             error: Some(format!("HTTP {}", resp.status())),
         }),
-        Err(e) => Ok(ServiceStatus {
+        Err(_) => Ok(ServiceStatus {
             running: false,
             url: state.paperclip_url.clone(),
-            error: Some(e.to_string()),
+            error: Some("Server offline".to_string()),
         }),
     }
 }

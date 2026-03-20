@@ -54,10 +54,10 @@ pub async fn check_ollama(state: State<'_, AppState>) -> Result<OllamaStatus, St
             models: vec![],
             error: Some(format!("HTTP {}", resp.status())),
         }),
-        Err(e) => Ok(OllamaStatus {
+        Err(_) => Ok(OllamaStatus {
             running: false,
             models: vec![],
-            error: Some(e.to_string()),
+            error: Some("Server offline".to_string()),
         }),
     }
 }
