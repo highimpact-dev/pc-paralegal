@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "../../lib/auth";
 
 const API = "http://localhost:3101/api";
 
@@ -18,6 +19,8 @@ interface Props {
 }
 
 export default function ActivityTab({ companyId }: Props) {
+  const { token } = useAuth();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
   const [events, setEvents] = useState<ActivityEvent[]>([]);
 
   useEffect(() => {
@@ -27,7 +30,7 @@ export default function ActivityTab({ companyId }: Props) {
   }, [companyId]);
 
   async function loadActivity() {
-    const res = await fetch(`${API}/companies/${companyId}/activity`);
+    const res = await fetch(`${API}/companies/${companyId}/activity`, { headers: authHeaders });
     const data = await res.json();
     const items: ActivityEvent[] = data.activity || data.events || [];
     setEvents(items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));

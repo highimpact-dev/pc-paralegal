@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "../../lib/auth";
 
 const API = "http://localhost:3101/api";
 
@@ -60,6 +61,8 @@ interface NewIssueForm {
 }
 
 export default function IssuesTab({ companyId, projects, agents, onRefresh }: Props) {
+  const { token } = useAuth();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
   const [issues, setIssues] = useState<Issue[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -81,13 +84,13 @@ export default function IssuesTab({ companyId, projects, agents, onRefresh }: Pr
   }, [companyId]);
 
   async function loadIssues() {
-    const res = await fetch(`${API}/companies/${companyId}/issues`);
+    const res = await fetch(`${API}/companies/${companyId}/issues`, { headers: authHeaders });
     const data = await res.json();
     setIssues(data.issues || []);
   }
 
   async function loadComments(issueId: string) {
-    const res = await fetch(`${API}/issues/${issueId}/comments`);
+    const res = await fetch(`${API}/issues/${issueId}/comments`, { headers: authHeaders });
     const data = await res.json();
     setComments((prev) => ({ ...prev, [issueId]: data.comments || [] }));
   }
@@ -108,7 +111,7 @@ export default function IssuesTab({ companyId, projects, agents, onRefresh }: Pr
     try {
       await fetch(`${API}/companies/${companyId}/projects/${form.projectId}/issues`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({
           title: form.title,
           description: form.description || null,
@@ -134,7 +137,7 @@ export default function IssuesTab({ companyId, projects, agents, onRefresh }: Pr
   async function handleStatusChange(issueId: string, status: string) {
     await fetch(`${API}/issues/${issueId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders },
       body: JSON.stringify({ status }),
     });
     await loadIssues();
@@ -146,7 +149,7 @@ export default function IssuesTab({ companyId, projects, agents, onRefresh }: Pr
     if (!body) return;
     await fetch(`${API}/issues/${issueId}/comments`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders },
       body: JSON.stringify({ body, companyId }),
     });
     setCommentInputs((prev) => ({ ...prev, [issueId]: "" }));
@@ -155,7 +158,7 @@ export default function IssuesTab({ companyId, projects, agents, onRefresh }: Pr
 
   async function handleDelete(issue: Issue) {
     if (!window.confirm(`Delete issue "${issue.title}"? This cannot be undone.`)) return;
-    await fetch(`${API}/issues/${issue.id}`, { method: "DELETE" });
+    await fetch(`${API}/issues/${issue.id}`, { method: "DELETE", headers: authHeaders });
     if (expandedId === issue.id) setExpandedId(null);
     await loadIssues();
     onRefresh();

@@ -10,6 +10,7 @@ export interface User {
 export interface AuthContextValue {
   user: User | null;
   token: string | null;
+  companyName: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   setup: (name: string, email: string, password: string, companyName: string) => Promise<void>;
@@ -20,6 +21,7 @@ export interface AuthContextValue {
 export const AuthContext = createContext<AuthContextValue>({
   user: null,
   token: null,
+  companyName: null,
   loading: true,
   login: async () => {},
   setup: async () => {},
@@ -108,4 +110,17 @@ export async function apiSetupStatus(): Promise<{ needsSetup: boolean }> {
   const res = await fetch(`${API}/auth/setup-status`);
   if (!res.ok) return { needsSetup: true };
   return res.json();
+}
+
+export async function apiGetCompanyName(token: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${API}/companies`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.companies?.[0]?.name || null;
+  } catch {
+    return null;
+  }
 }

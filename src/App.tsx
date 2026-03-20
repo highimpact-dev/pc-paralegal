@@ -30,6 +30,7 @@ import {
   apiSetup,
   apiRegister,
   apiGetMe,
+  apiGetCompanyName,
   apiLogout,
   apiSetupStatus,
 } from "./lib/auth";
@@ -46,6 +47,7 @@ export default function App() {
 
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(getStoredToken());
+  const [companyName, setCompanyName] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [needsSetup, setNeedsSetup] = useState(false);
 
@@ -91,6 +93,8 @@ export default function App() {
           const me = await apiGetMe(stored);
           setUser(me);
           setToken(stored);
+          const name = await apiGetCompanyName(stored);
+          setCompanyName(name);
         }
       } catch {
         setStoredToken(null);
@@ -106,14 +110,26 @@ export default function App() {
     setToken(result.token);
     setUser(result.user);
     setNeedsSetup(false);
+    const name = await apiGetCompanyName(result.token);
+    setCompanyName(name);
   };
 
-  const setup = async (name: string, email: string, password: string, companyName: string) => {
-    const result = await apiSetup(name, email, password, companyName);
-    setStoredToken(result.token);
-    setToken(result.token);
-    setUser(result.user);
-    setNeedsSetup(false);
+  const setup = async (name: string, email: string, password: string, coName: string) => {
+    try {
+      const result = await apiSetup(name, email, password, coName);
+      setStoredToken(result.token);
+      setToken(result.token);
+      setUser(result.user);
+      setCompanyName(coName);
+      setNeedsSetup(false);
+    } catch (err) {
+      // If setup already completed, redirect to login
+      if (err instanceof Error && err.message.includes("already completed")) {
+        setNeedsSetup(false);
+        return;
+      }
+      throw err;
+    }
   };
 
   const register = async (name: string, email: string, password: string) => {
@@ -146,7 +162,7 @@ export default function App() {
   }, []);
 
   const themeValue = { preference, resolved, setPreference };
-  const authValue = { user, token, loading: authLoading, login, setup, register, logout };
+  const authValue = { user, token, companyName, loading: authLoading, login, setup, register, logout };
 
   if (authLoading) {
     return (

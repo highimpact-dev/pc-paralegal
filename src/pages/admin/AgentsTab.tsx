@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "../../lib/auth";
 
 const API = "http://localhost:3101/api";
 
@@ -38,6 +39,8 @@ const emptyForm: NewAgentForm = {
 };
 
 export default function AgentsTab({ companyId, agents, onRefresh }: Props) {
+  const { token } = useAuth();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<NewAgentForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
@@ -48,7 +51,7 @@ export default function AgentsTab({ companyId, agents, onRefresh }: Props) {
     try {
       await fetch(`${API}/companies/${companyId}/agents`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({
           name: form.name,
           title: form.title || null,
@@ -69,7 +72,7 @@ export default function AgentsTab({ companyId, agents, onRefresh }: Props) {
     const newStatus = agent.status === "paused" ? "idle" : "paused";
     await fetch(`${API}/agents/${agent.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders },
       body: JSON.stringify({ status: newStatus }),
     });
     onRefresh();
@@ -77,7 +80,7 @@ export default function AgentsTab({ companyId, agents, onRefresh }: Props) {
 
   async function handleDelete(agent: Agent) {
     if (!window.confirm(`Delete agent "${agent.name}"? This cannot be undone.`)) return;
-    await fetch(`${API}/agents/${agent.id}`, { method: "DELETE" });
+    await fetch(`${API}/agents/${agent.id}`, { method: "DELETE", headers: authHeaders });
     onRefresh();
   }
 

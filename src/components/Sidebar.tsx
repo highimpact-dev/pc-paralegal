@@ -84,12 +84,12 @@ const themeOptions: Array<{ value: "light" | "dark" | "auto"; label: string; ico
 
 export default function Sidebar() {
   const { preference, setPreference } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, companyName, logout } = useAuth();
 
   return (
     <aside className="w-56 bg-gray-50 dark:bg-sidebar text-gray-800 dark:text-white flex flex-col border-r border-gray-200 dark:border-transparent transition-colors">
       <div className="p-4 border-b border-gray-200 dark:border-white/10">
-        <h1 className="text-lg font-bold tracking-tight">PC-Paralegal</h1>
+        <h1 className="text-lg font-bold tracking-tight">{companyName || "PC-Paralegal"}</h1>
         <p className="text-xs text-gray-400 dark:text-white/50 mt-0.5">Virtual Paralegal</p>
       </div>
       <nav className="flex-1 py-2">

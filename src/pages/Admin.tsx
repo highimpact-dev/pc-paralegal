@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import AgentsTab from "./admin/AgentsTab";
 import IssuesTab from "./admin/IssuesTab";
 import ActivityTab from "./admin/ActivityTab";
+import { useAuth } from "../lib/auth";
 
 const API = "http://localhost:3101/api";
 
@@ -43,23 +44,26 @@ const tabs: { key: Tab; label: string }[] = [
 ];
 
 export default function Admin() {
+  const { token } = useAuth();
   const [tab, setTab] = useState<Tab>("agents");
   const [company, setCompany] = useState<Company | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
   const loadData = useCallback(async () => {
     try {
-      const companiesRes = await fetch(`${API}/companies`);
+      const companiesRes = await fetch(`${API}/companies`, { headers });
       const { companies } = await companiesRes.json();
       if (companies.length === 0) return;
       const co = companies[0];
       setCompany(co);
 
       const [agentsRes, projectsRes] = await Promise.all([
-        fetch(`${API}/companies/${co.id}/agents`),
-        fetch(`${API}/companies/${co.id}/projects`),
+        fetch(`${API}/companies/${co.id}/agents`, { headers }),
+        fetch(`${API}/companies/${co.id}/projects`, { headers }),
       ]);
       setAgents((await agentsRes.json()).agents || []);
       setProjects((await projectsRes.json()).projects || []);
@@ -67,7 +71,8 @@ export default function Admin() {
     } catch {
       setError("Cannot connect to Paperclip server");
     }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   useEffect(() => {
     loadData();
@@ -137,6 +142,8 @@ export default function Admin() {
 
 // Projects is simple enough to keep inline
 function ProjectsSection({ companyId, projects, onRefresh }: { companyId: string; projects: Project[]; onRefresh: () => void }) {
+  const { token } = useAuth();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -149,7 +156,7 @@ function ProjectsSection({ companyId, projects, onRefresh }: { companyId: string
     try {
       await fetch(`${API}/companies/${companyId}/projects`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({ name: name.trim(), description: description.trim() || null }),
       });
       setName("");
