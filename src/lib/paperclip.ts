@@ -1,4 +1,4 @@
-const PAPERCLIP_URL = "http://localhost:3100";
+const PAPERCLIP_URL = "http://localhost:3101";
 
 export interface PaperclipIssue {
   id: string;

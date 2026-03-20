@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { listDirectory, readFileText } from "../lib/tauri";
 import DeliverableCard from "../components/DeliverableCard";
+import Markdown from "../components/Markdown";
 import type { FileEntry } from "../types";
 
 export default function Deliverables() {
@@ -57,9 +58,7 @@ export default function Deliverables() {
                 </button>
               </div>
               <div className="p-4 max-h-[70vh] overflow-auto">
-                <pre className="text-sm whitespace-pre-wrap font-sans text-gray-700 dark:text-gray-300 leading-relaxed">
-                  {content}
-                </pre>
+                <Markdown content={content} />
               </div>
             </div>
           ) : (

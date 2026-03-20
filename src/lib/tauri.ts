@@ -69,6 +69,10 @@ export async function writeFileText(path: string, content: string): Promise<void
   return invoke("write_file_text", { path, content });
 }
 
+export async function writeFileBinary(path: string, data: number[]): Promise<void> {
+  return invoke("write_file_binary", { path, data });
+}
+
 export async function deleteFile(path: string): Promise<void> {
   return invoke("delete_file", { path });
 }

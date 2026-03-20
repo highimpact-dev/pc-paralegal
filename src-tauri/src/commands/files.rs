@@ -73,6 +73,14 @@ pub async fn write_file_text(path: String, content: String) -> Result<(), String
 }
 
 #[tauri::command]
+pub async fn write_file_binary(path: String, data: Vec<u8>) -> Result<(), String> {
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::write(&path, data).map_err(|e| format!("Failed to write {}: {}", path, e))
+}
+
+#[tauri::command]
 pub async fn delete_file(path: String) -> Result<(), String> {
     let p = std::path::Path::new(&path);
     if p.is_dir() {

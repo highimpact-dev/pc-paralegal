@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import Markdown from "./Markdown";
 import type { ChatMessage } from "../types";
 
 interface ChatInterfaceProps {
@@ -50,7 +51,11 @@ export default function ChatInterface({
                     : "bg-gray-100 dark:bg-dark-card text-gray-800 dark:text-gray-200"
                 }`}
               >
-                <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
+                {msg.role === "assistant" ? (
+                  <Markdown content={msg.content} />
+                ) : (
+                  <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
+                )}
               </div>
             </div>
           ))}

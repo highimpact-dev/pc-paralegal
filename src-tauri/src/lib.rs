@@ -22,6 +22,7 @@ pub fn run() {
             commands::files::list_directory,
             commands::files::read_file_text,
             commands::files::write_file_text,
+            commands::files::write_file_binary,
             commands::files::delete_file,
             commands::files::copy_to_inbox,
             // Documents
@@ -32,7 +33,7 @@ pub fn run() {
             // Init paralegal directories on startup
             let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
             let base = std::path::PathBuf::from(&home).join("paralegal");
-            let dirs = ["inbox", "processing", "deliverables", "templates", "matters", "config"];
+            let dirs = ["inbox", "processing", "deliverables", "templates", "matters", "config", "data"];
             for dir in &dirs {
                 let _ = std::fs::create_dir_all(base.join(dir));
             }

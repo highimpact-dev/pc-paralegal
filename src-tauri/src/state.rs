@@ -14,7 +14,7 @@ impl AppState {
         let home = dirs_home();
         Self {
             paralegal_dir: home.join("paralegal"),
-            paperclip_url: "http://localhost:3100".to_string(),
+            paperclip_url: "http://localhost:3101".to_string(),
             ollama_url: "http://localhost:11434".to_string(),
             paperclip_process: Mutex::new(None),
         }

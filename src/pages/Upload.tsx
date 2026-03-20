@@ -1,7 +1,8 @@
 import { useState } from "react";
 import FileDropZone from "../components/FileDropZone";
 import DocumentViewer from "../components/DocumentViewer";
-import { parseDocument, writeFileText } from "../lib/tauri";
+import Markdown from "../components/Markdown";
+import { parseDocument, writeFileText, writeFileBinary } from "../lib/tauri";
 import { reviewDocument, draftMemo } from "../lib/ollama";
 import type { ParsedDocument } from "../types";
 
@@ -22,26 +23,24 @@ export default function Upload() {
     setResult(null);
 
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const text = reader.result as string;
-        const home = await getHome();
-        const inboxPath = `${home}/paralegal/inbox/${file.name}`;
+      const home = await getHome();
+      const inboxPath = `${home}/paralegal/inbox/${file.name}`;
+      const isText = file.type.startsWith("text/") || file.name.endsWith(".txt") || file.name.endsWith(".md");
 
-        if (file.type.startsWith("text/") || file.name.endsWith(".txt") || file.name.endsWith(".md")) {
-          await writeFileText(inboxPath, text);
-          const doc = await parseDocument(inboxPath);
-          setParsed(doc);
-        } else {
-          setParsed({
-            filename: file.name,
-            text: `[Binary file: ${file.name}]\n\nFor PDF/DOCX files, the document will be parsed using LiteParse when processed through the native file system.\n\nFile size: ${(file.size / 1024).toFixed(1)} KB`,
-            metadata: { type: file.type, size: file.size },
-            pages: null,
-          });
-        }
-      };
-      reader.readAsText(file);
+      if (isText) {
+        // Text files: read as string, write as text
+        const text = await file.text();
+        await writeFileText(inboxPath, text);
+      } else {
+        // Binary files (PDF, DOCX, images): read as bytes, write binary
+        const buffer = await file.arrayBuffer();
+        const bytes = Array.from(new Uint8Array(buffer));
+        await writeFileBinary(inboxPath, bytes);
+      }
+
+      // Parse with LiteParse (handles PDF, DOCX, TXT, images)
+      const doc = await parseDocument(inboxPath);
+      setParsed(doc);
     } catch (e) {
       setError(`Failed to process file: ${e}`);
     }
@@ -144,9 +143,7 @@ export default function Upload() {
                 <span className="font-medium text-sm text-green-800 dark:text-green-400">Result</span>
               </div>
               <div className="p-4 max-h-96 overflow-auto">
-                <pre className="text-sm whitespace-pre-wrap font-sans text-gray-700 dark:text-gray-300 leading-relaxed">
-                  {result}
-                </pre>
+                <Markdown content={result} />
               </div>
             </div>
           )}

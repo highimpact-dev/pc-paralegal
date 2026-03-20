@@ -122,7 +122,7 @@ export default function Settings() {
             <h3 className="font-semibold text-sm">Services</h3>
           </div>
           <div className="p-5 space-y-3">
-            <PathRow label="Paperclip Server" path="http://localhost:3100" />
+            <PathRow label="Paperclip Server" path="http://localhost:3101" />
             <PathRow label="Ollama API" path="http://localhost:11434" />
           </div>
         </section>
