@@ -35,24 +35,14 @@ export function createApp(db: AppDb, sqlite: Database) {
 
   // Health check (no auth required)
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", version: "0.1.0", mode: process.env.AUTH_MODE || "authenticated" });
+    res.json({ status: "ok", version: "0.1.0", mode: "authenticated" });
   });
 
   // Auth routes (no session required — they handle their own auth logic)
   app.use(createAuthRoutes(db, sqlite));
 
   // Auth middleware — all subsequent /api/* routes require a valid session
-  // In local_trusted mode, skip auth (for agent scripts and local development)
-  const authMode = process.env.AUTH_MODE || "authenticated";
   app.use("/api", (req, res, next) => {
-    if (authMode === "local_trusted") {
-      // No auth required — set a default admin user context
-      const adminUser = sqlite.query<{ id: string; name: string; email: string; role: string }, []>(
-        "SELECT id, name, email, role FROM users WHERE role = 'admin' LIMIT 1"
-      ).get();
-      if (adminUser) res.locals["user"] = adminUser;
-      return next();
-    }
     const user = getSessionUser(sqlite, req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
     res.locals["user"] = user;

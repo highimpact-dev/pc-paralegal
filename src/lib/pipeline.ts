@@ -32,18 +32,19 @@ async function api(path: string, token: string | null, options?: RequestInit) {
 }
 
 async function getAgentInbox(agentId: string, token: string | null) {
-  const data = await api(
-    `/companies/${COMPANY_ID}/issues?assigneeAgentId=${agentId}&status=todo,in_progress`,
-    token
+  const data = await api(`/companies/${COMPANY_ID}/issues`, token);
+  const all = data.issues || [];
+  // Filter client-side: assigned to this agent, status todo or in_progress
+  return all.filter(
+    (i: { assigneeAgentId: string; status: string }) =>
+      i.assigneeAgentId === agentId &&
+      (i.status === "todo" || i.status === "in_progress")
   );
-  return data.issues || [];
 }
 
-async function checkout(issueId: string, agentId: string, token: string | null) {
-  return api(`/issues/${issueId}/checkout`, token, {
-    method: "POST",
-    body: JSON.stringify({ agentId, expectedStatuses: ["todo", "backlog", "in_progress"] }),
-  });
+async function checkout(issueId: string, _agentId: string, token: string | null) {
+  // Set status to in_progress (simplified Paperclip — no /checkout endpoint)
+  return patchIssue(issueId, { status: "in_progress" }, token);
 }
 
 async function patchIssue(issueId: string, update: Record<string, unknown>, token: string | null) {
