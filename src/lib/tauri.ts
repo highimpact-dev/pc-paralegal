@@ -140,6 +140,6 @@ export async function stopWatching(): Promise<void> {
   return invoke("stop_watching");
 }
 
-export async function processDocumentManual(path: string): Promise<void> {
-  return invoke("process_document_manual", { path });
+export async function saveInventoryEntry(entry: InventoryEntry): Promise<void> {
+  return invoke("save_inventory_entry", { entry });
 }

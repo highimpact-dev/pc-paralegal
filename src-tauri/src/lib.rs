@@ -60,7 +60,7 @@ pub fn run() {
             commands::director::get_watcher_status,
             commands::director::start_watching,
             commands::director::stop_watching,
-            commands::director::process_document_manual,
+            commands::director::save_inventory_entry,
         ])
         .setup(|app| {
             // Init paralegal directories on startup

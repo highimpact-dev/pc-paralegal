@@ -58,11 +58,8 @@ export default function Settings({ services }: SettingsProps) {
         setDirectorStatus(e.payload.message);
         if (e.payload.event_type === "watching") setWatcherActive(true);
       }),
-      listen<DirectorEvent>("director:processing", (e) => {
-        setDirectorStatus(`Processing: ${e.payload.filename}`);
-      }),
-      listen<DirectorEvent>("director:complete", (e) => {
-        setDirectorStatus(`Completed: ${e.payload.filename} (${e.payload.document_type})`);
+      listen<DirectorEvent>("director:new-file", (e) => {
+        setDirectorStatus(`New file: ${e.payload.filename}`);
       }),
       listen<DirectorEvent>("director:error", (e) => {
         setDirectorStatus(`Error: ${e.payload.message}`);

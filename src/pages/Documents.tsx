@@ -5,8 +5,10 @@ import {
   getDirectorConfig,
   getInventory,
   readFileText,
-  processDocumentManual,
+  saveInventoryEntry,
 } from "../lib/tauri";
+import { useAuth } from "../lib/auth";
+import { processDocument } from "../lib/pipeline";
 import type { InventoryEntry, DirectorEvent } from "../types";
 
 interface WatchedFile {
@@ -145,13 +147,41 @@ export default function Documents() {
     setLoadingContent(false);
   };
 
+  const { token } = useAuth();
+
   const handleProcess = async (file: WatchedFile) => {
     setProcessing((prev) => new Set(prev).add(file.path));
-    try {
-      await processDocumentManual(file.path);
-    } catch (e) {
-      console.error("Process failed:", e);
+    if (selectedFile?.path === file.path) {
+      setSelectedFile({ ...file, status: "processing" });
     }
+    setFiles((prev) =>
+      prev.map((f) => (f.path === file.path ? { ...f, status: "processing" as const } : f))
+    );
+
+    await processDocument(file.path, token, async (status) => {
+      if (status.step === "complete") {
+        await saveInventoryEntry({
+          filename: status.filename,
+          source_path: file.path,
+          processed_at: String(Math.floor(Date.now() / 1000)),
+          document_type: status.documentType || "unknown",
+          deliverables: status.deliverables || [],
+          status: "complete",
+        }).catch(() => {});
+        setProcessing((prev) => {
+          const next = new Set(prev);
+          next.delete(file.path);
+          return next;
+        });
+        loadFiles();
+      } else if (status.step === "error") {
+        setProcessing((prev) => {
+          const next = new Set(prev);
+          next.delete(file.path);
+          return next;
+        });
+      }
+    });
   };
 
   return (

@@ -11,7 +11,10 @@ import Admin from "./pages/Admin";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import Onboarding from "./pages/Onboarding";
-import { checkServices, type ServiceStatuses } from "./lib/tauri";
+import { checkServices, saveInventoryEntry, type ServiceStatuses } from "./lib/tauri";
+import { listen } from "@tauri-apps/api/event";
+import { processDocument, type PipelineStatus } from "./lib/pipeline";
+import type { DirectorEvent } from "./types";
 import {
   ThemeContext,
   getStoredPreference,
@@ -151,6 +154,44 @@ export default function App() {
     setToken(null);
     setUser(null);
   };
+
+  // Director pipeline — listen for new files and process them
+  useEffect(() => {
+    if (!token) return; // Need auth for Paperclip API
+
+    const processing = new Set<string>();
+
+    const unlisten = listen<DirectorEvent>("director:new-file", async (event) => {
+      const { path } = event.payload;
+
+      // Skip if already processing
+      if (processing.has(path)) return;
+      processing.add(path);
+
+      await processDocument(path, token, async (status: PipelineStatus) => {
+        console.log(`[Pipeline] ${status.step}: ${status.message}`);
+
+        if (status.step === "complete") {
+          // Save to inventory
+          await saveInventoryEntry({
+            filename: status.filename,
+            source_path: path,
+            processed_at: String(Math.floor(Date.now() / 1000)),
+            document_type: status.documentType || "unknown",
+            deliverables: status.deliverables || [],
+            status: "complete",
+          }).catch(() => {});
+          processing.delete(path);
+        } else if (status.step === "error") {
+          processing.delete(path);
+        }
+      });
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [token]);
 
   // Poll services
   useEffect(() => {

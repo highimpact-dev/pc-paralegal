@@ -75,8 +75,6 @@ export interface InventoryEntry {
 export interface DirectorEvent {
   event_type: string;
   filename: string;
+  path: string;
   message: string;
-  document_type?: string;
-  deliverables?: string[];
-  error?: string;
 }
