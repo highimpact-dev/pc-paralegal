@@ -11,9 +11,9 @@ import Admin from "./pages/Admin";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import Onboarding from "./pages/Onboarding";
-import { checkServices, saveInventoryEntry, type ServiceStatuses } from "./lib/tauri";
+import { checkServices, type ServiceStatuses } from "./lib/tauri";
 import { listen } from "@tauri-apps/api/event";
-import { processDocument, type PipelineStatus } from "./lib/pipeline";
+import { directorIngest, agentHeartbeat } from "./lib/pipeline";
 import type { DirectorEvent } from "./types";
 import {
   ThemeContext,
@@ -155,41 +155,53 @@ export default function App() {
     setUser(null);
   };
 
-  // Director pipeline — listen for new files and process them
+  // Director: ingest new files (parse + create Paperclip issue for Reviewer)
   useEffect(() => {
-    if (!token) return; // Need auth for Paperclip API
+    if (!token) return;
 
-    const processing = new Set<string>();
+    const ingested = new Set<string>();
 
     const unlisten = listen<DirectorEvent>("director:new-file", async (event) => {
-      const { path } = event.payload;
+      const { path, filename } = event.payload;
+      if (ingested.has(path)) return;
+      ingested.add(path);
 
-      // Skip if already processing
-      if (processing.has(path)) return;
-      processing.add(path);
-
-      await processDocument(path, token, async (status: PipelineStatus) => {
-        console.log(`[Pipeline] ${status.step}: ${status.message}`);
-
-        if (status.step === "complete") {
-          // Save to inventory
-          await saveInventoryEntry({
-            filename: status.filename,
-            source_path: path,
-            processed_at: String(Math.floor(Date.now() / 1000)),
-            document_type: status.documentType || "unknown",
-            deliverables: status.deliverables || [],
-            status: "complete",
-          }).catch(() => {});
-          processing.delete(path);
-        } else if (status.step === "error") {
-          processing.delete(path);
-        }
-      });
+      console.log(`[Director] Ingesting: ${filename}`);
+      try {
+        await directorIngest(path, token);
+        console.log(`[Director] Issue created for: ${filename}`);
+      } catch (e) {
+        console.error(`[Director] Ingest failed for ${filename}:`, e);
+        ingested.delete(path);
+      }
     });
 
+    return () => { unlisten.then((fn) => fn()); };
+  }, [token]);
+
+  // Agent heartbeat: poll Paperclip inboxes every 10s
+  useEffect(() => {
+    if (!token) return;
+
+    let running = false;
+    const beat = async () => {
+      if (running) return;
+      running = true;
+      try {
+        await agentHeartbeat(token);
+      } catch (e) {
+        console.error("[Heartbeat] Error:", e);
+      }
+      running = false;
+    };
+
+    // First beat after 3s (let app initialize), then every 10s
+    const initial = setTimeout(beat, 3000);
+    const interval = setInterval(beat, 10000);
+
     return () => {
-      unlisten.then((fn) => fn());
+      clearTimeout(initial);
+      clearInterval(interval);
     };
   }, [token]);
 

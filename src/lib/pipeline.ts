@@ -1,107 +1,86 @@
 /**
- * Document Processing Pipeline
+ * Paperclip-driven document processing.
  *
- * Runs entirely through existing Tauri IPC + Paperclip issues.
- * No child processes. No spawned scripts.
- *
- * Flow:
- * 1. Parse document (Tauri parse_document)
- * 2. Save parsed text
- * 3. Create Paperclip issue → assign to Reviewer (handoff = parsed file path)
- * 4. Classify + Review via Ollama (Tauri chat_completion)
- * 5. Save review deliverable
- * 6. Mark review issue done, create summary issue → assign to Drafter
- * 7. Generate summary via Ollama
- * 8. Save summary deliverable
- * 9. Mark summary issue done
+ * Director: parse document, create issue for Reviewer. Done.
+ * Heartbeat: polls each agent's Paperclip inbox, processes assigned work.
+ * Each agent checks out its issue, does the work, hands off via new issue.
  */
 
 import { parseDocument, chatCompletion, writeFileText } from "./tauri";
 import { getModel } from "./settings";
 
-const PAPERCLIP_API = "http://localhost:3101/api";
+const API = "http://localhost:3101/api";
 
-const AGENTS = {
-  company: "5aa5315e-0ff5-40e7-8244-c432a342b6de",
-  project: "60f88f9f-c00e-4adf-afc9-bbe933cfb3d3",
-  director: "34e054d6-84e5-4639-b6f0-327c22ee52e8",
-  reviewer: "e709ac1b-fc66-4478-be1c-44883a692d03",
-  drafter: "abf62539-3335-43be-8132-d4f19801025e",
-};
+const COMPANY_ID = "5aa5315e-0ff5-40e7-8244-c432a342b6de";
+const PROJECT_ID = "60f88f9f-c00e-4adf-afc9-bbe933cfb3d3";
+const DIRECTOR_ID = "34e054d6-84e5-4639-b6f0-327c22ee52e8";
+const REVIEWER_ID = "e709ac1b-fc66-4478-be1c-44883a692d03";
+const DRAFTER_ID = "abf62539-3335-43be-8132-d4f19801025e";
 
-export interface PipelineStatus {
-  step: "parsing" | "classifying" | "reviewing" | "summarizing" | "complete" | "error";
-  filename: string;
-  message: string;
-  documentType?: string;
-  deliverables?: string[];
-  error?: string;
+// --- Paperclip API helpers ---
+
+async function api(path: string, token: string | null, options?: RequestInit) {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API}${path}`, { ...options, headers });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
 }
 
-type StatusCallback = (status: PipelineStatus) => void;
+async function getAgentInbox(agentId: string, token: string | null) {
+  const data = await api(
+    `/companies/${COMPANY_ID}/issues?assigneeAgentId=${agentId}&status=todo,in_progress`,
+    token
+  );
+  return data.issues || [];
+}
 
-// --- Paperclip helpers (fire-and-forget, non-fatal) ---
+async function checkout(issueId: string, agentId: string, token: string | null) {
+  return api(`/issues/${issueId}/checkout`, token, {
+    method: "POST",
+    body: JSON.stringify({ agentId, expectedStatuses: ["todo", "backlog", "in_progress"] }),
+  });
+}
+
+async function patchIssue(issueId: string, update: Record<string, unknown>, token: string | null) {
+  return api(`/issues/${issueId}`, token, {
+    method: "PATCH",
+    body: JSON.stringify(update),
+  });
+}
+
+async function postComment(issueId: string, content: string, agentId: string, token: string | null) {
+  return api(`/issues/${issueId}/comments`, token, {
+    method: "POST",
+    body: JSON.stringify({ content, agentId }),
+  });
+}
 
 async function createIssue(
   title: string,
   description: string,
   assigneeAgentId: string,
+  createdByAgentId: string,
   token: string | null
-): Promise<string | null> {
-  try {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    const res = await fetch(`${PAPERCLIP_API}/companies/${AGENTS.company}/issues`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        title,
-        description,
-        priority: "high",
-        projectId: AGENTS.project,
-        assigneeAgentId,
-        createdByAgentId: AGENTS.director,
-      }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return data.id;
-    }
-  } catch {}
-  return null;
-}
-
-async function updateIssue(issueId: string, status: string, token: string | null) {
-  try {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    await fetch(`${PAPERCLIP_API}/issues/${issueId}`, {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify({ status }),
-    });
-  } catch {}
-}
-
-async function postComment(issueId: string, content: string, agentId: string, token: string | null) {
-  try {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    await fetch(`${PAPERCLIP_API}/issues/${issueId}/comments`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ content, agentId }),
-    });
-  } catch {}
+) {
+  return api(`/companies/${COMPANY_ID}/issues`, token, {
+    method: "POST",
+    body: JSON.stringify({
+      title,
+      description,
+      priority: "high",
+      projectId: PROJECT_ID,
+      assigneeAgentId,
+      createdByAgentId,
+      status: "todo",
+    }),
+  });
 }
 
 // --- Prompts ---
 
 const CLASSIFIER_PROMPT = `You are a legal document classifier. Given document text and filename, classify it into exactly one type.
-
 Types: contract, nda, pleading, correspondence, discovery, corporate, regulatory, unknown
-
 Respond with ONLY a JSON object (no markdown):
 {"type": "contract", "subtype": "master_services_agreement", "confidence": "high", "reasoning": "..."}`;
 
@@ -133,18 +112,12 @@ const SUMMARY_PROMPT = `You are a paralegal writing an executive summary for an 
 5. **Bottom Line** - ready to sign, needs revision, or serious problems?
 Write for a busy attorney. 60 seconds to read. No jargon where plain language works.`;
 
-// --- Pipeline ---
+// --- Director: ingest only ---
 
-export async function processDocument(
-  filePath: string,
-  token: string | null,
-  onStatus: StatusCallback
-): Promise<void> {
+export async function directorIngest(filePath: string, token: string | null): Promise<void> {
   const filename = filePath.split("/").pop() || filePath;
   const baseName = filename.replace(/\.[^.]+$/, "");
-  const model = getModel();
 
-  // Use dynamic import to get home dir
   let home: string;
   try {
     const { homeDir } = await import("@tauri-apps/api/path");
@@ -154,134 +127,229 @@ export async function processDocument(
   }
 
   const parsedPath = `${home}/paralegal/parsed/${baseName}.txt`;
-  const reviewPath = `${home}/paralegal/deliverables/review-${baseName}.md`;
-  const summaryPath = `${home}/paralegal/deliverables/summary-${baseName}.md`;
 
+  // Parse the document
+  const parsed = await parseDocument(filePath);
+  if (!parsed.text || parsed.text.trim().length < 50) {
+    throw new Error(`Parsing failed for ${filename} (${parsed.text?.length || 0} chars)`);
+  }
+
+  // Save parsed text
+  await writeFileText(parsedPath, parsed.text);
+
+  // Create issue for Reviewer — this IS the handoff
+  await createIssue(
+    `Review: ${filename}`,
+    `Classify and review this document.\n\nParsed text: ${parsedPath}\nOriginal: ${filePath}\nPages: ${parsed.pages || "unknown"}`,
+    REVIEWER_ID,
+    DIRECTOR_ID,
+    token
+  );
+}
+
+// --- Agent heartbeat ---
+
+export async function agentHeartbeat(token: string | null): Promise<void> {
+  // Check Reviewer inbox
   try {
-    // ── Step 1: Parse ──
-    onStatus({ step: "parsing", filename, message: "Parsing document..." });
-
-    const parsed = await parseDocument(filePath);
-    if (!parsed.text || parsed.text.trim().length < 50) {
-      throw new Error(`Parsing produced insufficient text (${parsed.text?.length || 0} chars)`);
+    const reviewerIssues = await getAgentInbox(REVIEWER_ID, token);
+    for (const issue of reviewerIssues) {
+      if (issue.status === "todo" || issue.status === "in_progress") {
+        await runReviewer(issue, token);
+      }
     }
+  } catch (e) {
+    console.error("[Heartbeat] Reviewer check failed:", e);
+  }
 
-    await writeFileText(parsedPath, parsed.text);
-
-    // ── Step 2: Create review issue (handoff) ──
-    const reviewIssueId = await createIssue(
-      `Review: ${filename}`,
-      `Classify and review document.\n\nParsed text: ${parsedPath}\nOriginal: ${filePath}\nPages: ${parsed.pages || "unknown"}`,
-      AGENTS.reviewer,
-      token
-    );
-    if (reviewIssueId) {
-      await updateIssue(reviewIssueId, "in_progress", token);
+  // Check Drafter inbox
+  try {
+    const drafterIssues = await getAgentInbox(DRAFTER_ID, token);
+    for (const issue of drafterIssues) {
+      if (issue.status === "todo" || issue.status === "in_progress") {
+        await runDrafter(issue, token);
+      }
     }
+  } catch (e) {
+    console.error("[Heartbeat] Drafter check failed:", e);
+  }
+}
 
-    // ── Step 3: Classify ──
-    onStatus({ step: "classifying", filename, message: "Classifying document type..." });
+// --- Reviewer agent ---
 
+async function runReviewer(issue: { id: string; title: string; description: string }, token: string | null) {
+  const model = getModel();
+
+  let home: string;
+  try {
+    const { homeDir } = await import("@tauri-apps/api/path");
+    home = await homeDir();
+  } catch {
+    home = "/Users/aialchemy";
+  }
+
+  // Checkout
+  try {
+    await checkout(issue.id, REVIEWER_ID, token);
+  } catch (e) {
+    console.error("[Reviewer] Checkout failed (409 = someone else has it):", e);
+    return; // Never retry a 409
+  }
+
+  // Extract parsed text path from issue description
+  const parsedPathMatch = issue.description?.match(/Parsed text:\s*(.+)/);
+  const originalMatch = issue.description?.match(/Original:\s*(.+)/);
+  if (!parsedPathMatch) {
+    await patchIssue(issue.id, { status: "blocked", comment: "No parsed text path in issue description" }, token);
+    return;
+  }
+
+  const parsedPath = parsedPathMatch[1].trim();
+  const originalPath = originalMatch?.[1]?.trim() || "";
+  const filename = originalPath.split("/").pop() || issue.title.replace("Review: ", "");
+  const baseName = filename.replace(/\.[^.]+$/, "");
+
+  // Read parsed text
+  let docText: string;
+  try {
+    const { readFileText } = await import("./tauri");
+    docText = await readFileText(parsedPath);
+  } catch {
+    await patchIssue(issue.id, { status: "blocked", comment: `Cannot read parsed text: ${parsedPath}` }, token);
+    return;
+  }
+
+  // Classify
+  let docType = "unknown";
+  let docSubtype = "unclassified";
+  try {
     const classifyResponse = await chatCompletion(model, [
       { role: "system", content: CLASSIFIER_PROMPT },
-      { role: "user", content: `Classify this document.\n\nFilename: ${filename}\n\n${parsed.text.slice(0, 3000)}` },
+      { role: "user", content: `Classify this document.\n\nFilename: ${filename}\n\n${docText.slice(0, 3000)}` },
     ]);
-
-    let docType = "unknown";
-    let docSubtype = "unclassified";
-    try {
-      let jsonStr = classifyResponse.message.content.trim();
-      if (jsonStr.startsWith("```")) {
-        jsonStr = jsonStr.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-      }
-      const classification = JSON.parse(jsonStr);
-      docType = classification.type || "unknown";
-      docSubtype = classification.subtype || "unclassified";
-    } catch {}
-
-    // ── Step 4: Review ──
-    onStatus({
-      step: "reviewing",
-      filename,
-      message: `Reviewing as ${docType}...`,
-      documentType: docType,
-    });
-
-    const reviewPrompt =
-      docType === "contract" || docType === "nda"
-        ? CONTRACT_REVIEW_PROMPT
-        : GENERIC_REVIEW_PROMPT(docType);
-
-    const reviewResponse = await chatCompletion(model, [
-      { role: "system", content: reviewPrompt },
-      { role: "user", content: `Review this document.\n\nDocument: ${filename}\n\n---\n\n${parsed.text}` },
-    ]);
-
-    const reviewContent = `# Contract Review: ${filename}\n\n**Date:** ${new Date().toLocaleString()}\n**Type:** ${docType} (${docSubtype})\n**Skill:** contract-review v1.0\n\n---\n\n${reviewResponse.message.content}`;
-    await writeFileText(reviewPath, reviewContent);
-
-    // Mark review issue done
-    if (reviewIssueId) {
-      await postComment(
-        reviewIssueId,
-        `**Review complete**\nType: ${docType} (${docSubtype})\nDeliverable: \`review-${baseName}.md\``,
-        AGENTS.reviewer,
-        token
-      );
-      await updateIssue(reviewIssueId, "done", token);
+    let jsonStr = classifyResponse.message.content.trim();
+    if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
     }
+    const c = JSON.parse(jsonStr);
+    docType = c.type || "unknown";
+    docSubtype = c.subtype || "unclassified";
+  } catch {}
 
-    // ── Step 5: Create summary issue (handoff) ──
-    const summaryIssueId = await createIssue(
-      `Summary: ${filename}`,
-      `Generate executive summary.\n\nParsed text: ${parsedPath}\nReview: ${reviewPath}`,
-      AGENTS.drafter,
-      token
-    );
-    if (summaryIssueId) {
-      await updateIssue(summaryIssueId, "in_progress", token);
-    }
+  // Review
+  const reviewPrompt = (docType === "contract" || docType === "nda")
+    ? CONTRACT_REVIEW_PROMPT
+    : GENERIC_REVIEW_PROMPT(docType);
 
-    // ── Step 6: Summary ──
-    onStatus({ step: "summarizing", filename, message: "Generating summary..." });
+  const reviewResponse = await chatCompletion(model, [
+    { role: "system", content: reviewPrompt },
+    { role: "user", content: `Review this document.\n\nDocument: ${filename}\n\n---\n\n${docText}` },
+  ]);
 
-    const summaryResponse = await chatCompletion(model, [
-      { role: "system", content: SUMMARY_PROMPT },
-      {
-        role: "user",
-        content: `Summarize this document incorporating review findings.\n\n---REVIEW---\n${reviewResponse.message.content}\n---END REVIEW---\n\nOriginal (first 8000 chars):\n---DOCUMENT---\n${parsed.text.slice(0, 8000)}\n---END DOCUMENT---`,
-      },
-    ]);
+  // Write deliverable
+  const reviewPath = `${home}/paralegal/deliverables/review-${baseName}.md`;
+  const reviewContent = `# Contract Review: ${filename}\n\n**Date:** ${new Date().toLocaleString()}\n**Type:** ${docType} (${docSubtype})\n\n---\n\n${reviewResponse.message.content}`;
+  await writeFileText(reviewPath, reviewContent);
 
-    const summaryContent = `# Summary: ${filename}\n\n**Date:** ${new Date().toLocaleString()}\n**Type:** ${docType} (${docSubtype})\n\n---\n\n${summaryResponse.message.content}`;
-    await writeFileText(summaryPath, summaryContent);
+  // Comment on issue
+  await postComment(
+    issue.id,
+    `## Review Complete\n\n- **Type:** ${docType} (${docSubtype})\n- **Deliverable:** \`review-${baseName}.md\`\n- **Path:** ${reviewPath}`,
+    REVIEWER_ID,
+    token
+  );
 
-    // Mark summary issue done
-    if (summaryIssueId) {
-      await postComment(
-        summaryIssueId,
-        `**Summary complete**\nDeliverable: \`summary-${baseName}.md\``,
-        AGENTS.drafter,
-        token
-      );
-      await updateIssue(summaryIssueId, "done", token);
-    }
+  // Create issue for Drafter — handoff with review + parsed paths
+  await createIssue(
+    `Summary: ${filename}`,
+    `Generate executive summary.\n\nParsed text: ${parsedPath}\nReview: ${reviewPath}\nOriginal: ${originalPath}`,
+    DRAFTER_ID,
+    REVIEWER_ID,
+    token
+  );
 
-    // ── Done ──
-    onStatus({
-      step: "complete",
-      filename,
-      message: "Processing complete",
-      documentType: docType,
-      deliverables: [`review-${baseName}.md`, `summary-${baseName}.md`],
-    });
-  } catch (e) {
-    const errorMsg = e instanceof Error ? e.message : String(e);
-    onStatus({
-      step: "error",
-      filename,
-      message: `Failed: ${errorMsg}`,
-      error: errorMsg,
-    });
+  // Mark done
+  await patchIssue(issue.id, { status: "done" }, token);
+}
+
+// --- Drafter agent ---
+
+async function runDrafter(issue: { id: string; title: string; description: string }, token: string | null) {
+  const model = getModel();
+
+  let home: string;
+  try {
+    const { homeDir } = await import("@tauri-apps/api/path");
+    home = await homeDir();
+  } catch {
+    home = "/Users/aialchemy";
   }
+
+  // Checkout
+  try {
+    await checkout(issue.id, DRAFTER_ID, token);
+  } catch (e) {
+    console.error("[Drafter] Checkout failed:", e);
+    return;
+  }
+
+  // Extract paths from issue description
+  const parsedPathMatch = issue.description?.match(/Parsed text:\s*(.+)/);
+  const reviewPathMatch = issue.description?.match(/Review:\s*(.+)/);
+  const originalMatch = issue.description?.match(/Original:\s*(.+)/);
+
+  if (!reviewPathMatch) {
+    await patchIssue(issue.id, { status: "blocked", comment: "No review path in issue description" }, token);
+    return;
+  }
+
+  const reviewPath = reviewPathMatch[1].trim();
+  const parsedPath = parsedPathMatch?.[1]?.trim();
+  const originalPath = originalMatch?.[1]?.trim() || "";
+  const filename = originalPath.split("/").pop() || issue.title.replace("Summary: ", "");
+  const baseName = filename.replace(/\.[^.]+$/, "");
+
+  // Read review
+  let reviewContent: string;
+  try {
+    const { readFileText } = await import("./tauri");
+    reviewContent = await readFileText(reviewPath);
+  } catch {
+    await patchIssue(issue.id, { status: "blocked", comment: `Cannot read review: ${reviewPath}` }, token);
+    return;
+  }
+
+  // Read parsed text for additional context
+  let docText = "";
+  if (parsedPath) {
+    try {
+      const { readFileText } = await import("./tauri");
+      docText = await readFileText(parsedPath);
+    } catch {}
+  }
+
+  // Generate summary
+  const summaryResponse = await chatCompletion(model, [
+    { role: "system", content: SUMMARY_PROMPT },
+    {
+      role: "user",
+      content: `Summarize this document incorporating review findings.\n\n---REVIEW---\n${reviewContent}\n---END REVIEW---\n\nOriginal (first 8000 chars):\n---DOCUMENT---\n${docText.slice(0, 8000)}\n---END DOCUMENT---`,
+    },
+  ]);
+
+  // Write deliverable
+  const summaryPath = `${home}/paralegal/deliverables/summary-${baseName}.md`;
+  const summaryContent = `# Summary: ${filename}\n\n**Date:** ${new Date().toLocaleString()}\n\n---\n\n${summaryResponse.message.content}`;
+  await writeFileText(summaryPath, summaryContent);
+
+  // Comment on issue
+  await postComment(
+    issue.id,
+    `## Summary Complete\n\n- **Deliverable:** \`summary-${baseName}.md\`\n- **Path:** ${summaryPath}`,
+    DRAFTER_ID,
+    token
+  );
+
+  // Mark done
+  await patchIssue(issue.id, { status: "done" }, token);
 }
