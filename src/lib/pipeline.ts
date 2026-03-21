@@ -23,7 +23,11 @@ async function api(path: string, token: string | null, options?: RequestInit) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${API}${path}`, { ...options, headers });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`[Paperclip API] ${res.status} ${options?.method || "GET"} ${path}: ${body}`);
+    throw new Error(`${res.status} ${res.statusText}: ${body}`);
+  }
   return res.json();
 }
 
@@ -63,13 +67,12 @@ async function createIssue(
   createdByAgentId: string,
   token: string | null
 ) {
-  return api(`/companies/${COMPANY_ID}/issues`, token, {
+  return api(`/companies/${COMPANY_ID}/projects/${PROJECT_ID}/issues`, token, {
     method: "POST",
     body: JSON.stringify({
       title,
       description,
       priority: "high",
-      projectId: PROJECT_ID,
       assigneeAgentId,
       createdByAgentId,
       status: "todo",
